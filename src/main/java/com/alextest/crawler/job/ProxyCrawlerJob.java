@@ -10,7 +10,6 @@ import com.google.common.collect.Maps;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -64,6 +63,7 @@ public class ProxyCrawlerJob implements SimpleJob {
             Integer hashCode = proxyVo.getHashCode();
             if (hashCode != -1) {
                 resultMap.put(hashCode, proxyVo);
+                TestUtils.log("抓取到了代理IP：" + proxyVo.toString());
             }
         }
 

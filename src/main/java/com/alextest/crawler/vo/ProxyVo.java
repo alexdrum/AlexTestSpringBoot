@@ -18,7 +18,6 @@ import static com.alextest.crawler.CrawlerConst.TIAN_YAN_CHA_TEST;
  */
 @Getter
 @Setter
-@ToString
 public class ProxyVo {
     private String ip;
     private int port;
@@ -44,5 +43,10 @@ public class ProxyVo {
             return false;
         }
         return true;
+    }
+
+    @Override
+    public String toString(){
+        return ip + ":" + port;
     }
 }
