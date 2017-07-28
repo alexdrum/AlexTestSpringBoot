@@ -4,6 +4,8 @@ import com.alextest.Apis;
 import com.alextest.crawler.CrawlerConst;
 import com.alextest.crawler.entity.CompanyEntity;
 import com.alextest.crawler.exception.SimpleException;
+import com.alextest.crawler.service.ProxyService;
+import com.alextest.crawler.vo.ProxyVo;
 import com.alextest.util.DateUtils;
 import com.alextest.util.TestUtils;
 import com.google.common.collect.Lists;
@@ -19,6 +21,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -32,6 +35,8 @@ import java.net.URL;
 import java.util.List;
 
 import static com.alextest.crawler.CrawlerConst.SEED_FILE;
+import static com.alextest.crawler.CrawlerConst.TIAN_YAN_CHA_PREFIX;
+import static com.alextest.crawler.CrawlerConst.TIAN_YAN_CHA_SUFFIX;
 
 /**
  * Created by alexdrum on 2017/7/24.
@@ -40,11 +45,22 @@ import static com.alextest.crawler.CrawlerConst.SEED_FILE;
 @SpringBootApplication
 public class GetCompanyInfoController implements Apis {
 
+    @Autowired
+    ProxyService proxyService;
+
+    /**
+     * controller测试方法
+     */
+    @RequestMapping(value = CONTROLLER_TEST, method = RequestMethod.GET)
+    public void controllerTest(){
+        proxyService.getProxyVoMap();
+    }
+
     /**
      * 通过种子信息向天眼通抓取企业信息
      */
     @RequestMapping(value = GET_COMPANY_INFO, method = RequestMethod.GET)
-    public static void saveFromTianYanCha() throws IOException {
+    public void saveFromTianYanCha() throws IOException {
         boolean isDev = false;
 
         // 从excel文件中获取种子关键字集合
@@ -105,128 +121,140 @@ public class GetCompanyInfoController implements Apis {
             int CrawlerCounter = 1;
             // 通过关键字从目标网站上抓取数据
             for (String keyWord : keyList) {
-//                String searchURL = TIAN_YAN_CHA_PREFIX + keyWord + TIAN_YAN_CHA_SUFFIX;
-                String searchURL = "http://www.baidu.com";
-                Document doc = null;
                 try {
-                    Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress("124.206.107.125", 3128));
-                    URL url = new URL(searchURL);
-                    HttpURLConnection uc = (HttpURLConnection) url.openConnection(proxy);
-                    uc.connect();
-                    InputStream is = uc.getInputStream();
-                    BufferedReader buffer = new BufferedReader(new InputStreamReader(is));
-                    StringBuffer bs = new StringBuffer();
-                    String l;
-                    while ((l = buffer.readLine()) != null) {
-                        bs.append(l);
-                    }
-                    System.out.println(bs.toString());
-                    doc = Jsoup.parse(bs.toString());
-
-//                    doc = Jsoup.connect(searchURL).get();
-                } catch (IOException ioException) {
-                    TestUtils.log("获取网页失败！");
-                    ioException.printStackTrace();
-                }
-
-                TestUtils.log("已成功获取当前第" + CrawlerCounter + "个关键词：" + keyWord + " 的搜索结果页面；");
-                TestUtils.log(doc.toString());
-
-                Elements elements = doc.getElementsByClass("search_result_single search-2017 pb20 pt20 pl30 pr30");
-                if (CollectionUtils.isEmpty(elements)) {
-                    TestUtils.log("啥也没爬着！");
-                }
-
-                int resultCounter = 1;
-                for (Element element : elements) {
-                    TestUtils.log("已成功获取当前第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个搜索结果详细信息；");
-
-                    // 获取公司名称
-                    String companyName = "";
-                    Elements nameDiv = new Elements();
+                    String searchURL = TIAN_YAN_CHA_PREFIX + keyWord + TIAN_YAN_CHA_SUFFIX;
+                    Document doc;
                     try {
-                        nameDiv = element.getElementsByClass("mr20 search_left_icon");
-                        companyName = nameDiv.get(0).child(0).attr("alt");
-                    } catch (Exception e) {
-                        TestUtils.log("没有公司名称信息！");
+                        // 获取一个动态代理IP
+                        ProxyVo proxyVo = proxyService.getProxy();
+                        String proxyIp = proxyVo.getIp();
+                        Integer proxyPort = proxyVo.getPort();
+
+                        // 使用代理IP请求网页
+                        Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyIp, proxyPort));
+                        URL url = new URL(searchURL);
+                        HttpURLConnection uc = (HttpURLConnection) url.openConnection(proxy);
+                        uc.connect();
+                        InputStream is = uc.getInputStream();
+                        BufferedReader buffer = new BufferedReader(new InputStreamReader(is));
+                        StringBuffer bs = new StringBuffer();
+                        String l;
+                        while ((l = buffer.readLine()) != null) {
+                            bs.append(l);
+                        }
+
+                        // 将获得的网页转为文档对象
+                        TestUtils.log(bs.toString());
+                        doc = Jsoup.parse(bs.toString());
+                    } catch (IOException ioException) {
+                        TestUtils.log("获取网页失败！");
+                        ioException.printStackTrace();
+                        break;
                     }
 
-                    // 获取图片文件并保存到图片平台
-                    String picURL = "";
-                    try {
-                        picURL = nameDiv.get(0).child(0).attr("src");
-                    } catch (Exception e) {
-                        TestUtils.log("没有公司Logo信息！");
+                    TestUtils.log("已成功获取当前第" + CrawlerCounter + "个关键词：" + keyWord + " 的搜索结果页面；");
+                    TestUtils.log(doc.toString());
+
+                    Elements elements = doc.getElementsByClass("search_result_single search-2017 pb20 pt20 pl30 pr30");
+                    if (CollectionUtils.isEmpty(elements)) {
+                        TestUtils.log("啥也没爬着！");
                     }
 
-                    // 获取省份
-                    String province = "";
-                    try {
-                        Elements provinceDiv = element.getElementsByClass("search_right_item");
-                        String provinceDivString = provinceDiv.get(0).child(0).child(1).toString();
-                        province = provinceDivString.substring(provinceDivString.indexOf("</i>") + 4, provinceDivString.indexOf(" \n <div class=\"notInIE8 position-abs\""));
-                    } catch (Exception e) {
-                        TestUtils.log("没有所在省份信息！");
+                    int resultCounter = 1;
+                    for (Element element : elements) {
+                        TestUtils.log("已成功获取当前第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个搜索结果详细信息；");
+
+                        // 获取公司名称
+                        String companyName = "";
+                        Elements nameDiv = new Elements();
+                        try {
+                            nameDiv = element.getElementsByClass("mr20 search_left_icon");
+                            companyName = nameDiv.get(0).child(0).attr("alt");
+                        } catch (Exception e) {
+                            TestUtils.log("没有公司名称信息！");
+                        }
+
+                        // 获取图片文件并保存到图片平台
+                        String picURL = "";
+                        try {
+                            picURL = nameDiv.get(0).child(0).attr("src");
+                        } catch (Exception e) {
+                            TestUtils.log("没有公司Logo信息！");
+                        }
+
+                        // 获取省份
+                        String province = "";
+                        try {
+                            Elements provinceDiv = element.getElementsByClass("search_right_item");
+                            String provinceDivString = provinceDiv.get(0).child(0).child(1).toString();
+                            province = provinceDivString.substring(provinceDivString.indexOf("</i>") + 4, provinceDivString.indexOf(" \n <div class=\"notInIE8 position-abs\""));
+                        } catch (Exception e) {
+                            TestUtils.log("没有所在省份信息！");
+                        }
+
+                        // 获得法人姓名、注册资金、注册日期、品牌
+                        Elements infoDiv = element.getElementsByClass("search_row_new");
+
+                        // 注册法人
+                        String createName = "";
+                        try {
+                            createName = infoDiv.get(0).child(0).child(0).text();
+                        } catch (Exception e) {
+                            TestUtils.log("没有注册法人信息！");
+                        }
+
+                        // 注册资金
+                        String registeredCapitalString = infoDiv.get(0).child(1).child(0).text();
+                        Double registeredCapital = 0D;
+                        try {
+                            registeredCapital = Double.valueOf(registeredCapitalString.substring(0, registeredCapitalString.indexOf("万人民币")).trim());
+                            registeredCapital = registeredCapital * 10000L;
+                        } catch (Exception e) {
+                            TestUtils.log("没有注册资金信息！");
+                        }
+
+                        // 成立日期
+                        Integer foundDate = 0;
+                        try {
+                            String foundDateString = infoDiv.get(0).child(2).child(0).text();
+                            foundDate = Integer.valueOf(foundDateString.replace("-", ""));
+                        } catch (Exception e) {
+                            TestUtils.log("没有建立日期信息！");
+                        }
+
+                        // 品牌信息
+                        String brand = "";
+                        try {
+                            brand = infoDiv.get(0).child(3).child(0).child(2).text();
+                        } catch (Exception exception) {
+                            TestUtils.log("没有品牌信息");
+                        }
+
+                        CompanyEntity companyEntity = new CompanyEntity();
+                        companyEntity.setName(companyName);
+                        TestUtils.log("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的公司名称：" + companyName);
+                        companyEntity.setCreateName(createName);
+                        TestUtils.log("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的法人姓名：" + createName);
+                        companyEntity.setProvince(province);
+                        TestUtils.log("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的所在省份：" + province);
+                        companyEntity.setRegisteredCapital(registeredCapital);
+                        TestUtils.log("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的注册资金：" + registeredCapital);
+                        companyEntity.setFoundDate(foundDate);
+                        TestUtils.log("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的成立日期：" + foundDate);
+                        companyEntity.setBrand(brand);
+                        TestUtils.log("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的品牌信息：" + brand);
+                        companyEntity.setLogo(picURL);
+                        TestUtils.log("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的图片地址：" + picURL);
+                        companyEntity.setCreateTime(nowTime);
+                        list.add(companyEntity);
+                        resultCounter++;
                     }
-
-                    // 获得法人姓名、注册资金、注册日期、品牌
-                    Elements infoDiv = element.getElementsByClass("search_row_new");
-
-                    // 注册法人
-                    String createName = "";
-                    try {
-                        createName = infoDiv.get(0).child(0).child(0).text();
-                    } catch (Exception e) {
-                        TestUtils.log("没有注册法人信息！");
-                    }
-
-                    // 注册资金
-                    String registeredCapitalString = infoDiv.get(0).child(1).child(0).text();
-                    Double registeredCapital = 0D;
-                    try {
-                        registeredCapital = Double.valueOf(registeredCapitalString.substring(0, registeredCapitalString.indexOf("万人民币")).trim());
-                        registeredCapital = registeredCapital * 10000L;
-                    } catch (Exception e) {
-                        TestUtils.log("没有注册资金信息！");
-                    }
-
-                    // 成立日期
-                    Integer foundDate = 0;
-                    try {
-                        String foundDateString = infoDiv.get(0).child(2).child(0).text();
-                        foundDate = Integer.valueOf(foundDateString.replace("-", ""));
-                    } catch (Exception e) {
-                        TestUtils.log("没有建立日期信息！");
-                    }
-
-                    // 品牌信息
-                    String brand = "";
-                    try {
-                        brand = infoDiv.get(0).child(3).child(0).child(2).text();
-                    } catch (Exception exception) {
-                        TestUtils.log("没有品牌信息");
-                    }
-
-                    CompanyEntity companyEntity = new CompanyEntity();
-                    companyEntity.setName(companyName);
-                    TestUtils.log("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的公司名称：" + companyName);
-                    companyEntity.setCreateName(createName);
-                    TestUtils.log("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的法人姓名：" + createName);
-                    companyEntity.setProvince(province);
-                    TestUtils.log("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的所在省份：" + province);
-                    companyEntity.setRegisteredCapital(registeredCapital);
-                    TestUtils.log("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的注册资金：" + registeredCapital);
-                    companyEntity.setFoundDate(foundDate);
-                    TestUtils.log("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的成立日期：" + foundDate);
-                    companyEntity.setBrand(brand);
-                    TestUtils.log("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的品牌信息：" + brand);
-                    companyEntity.setLogo(picURL);
-                    TestUtils.log("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的图片地址：" + picURL);
-                    companyEntity.setCreateTime(nowTime);
-                    list.add(companyEntity);
-                    resultCounter++;
+                } catch (Exception e){
+                    break;
                 }
                 CrawlerCounter++;
+                // 休息5秒钟
+                Thread.sleep(5000);
             }
 
             // 写结果文件
