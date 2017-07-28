@@ -45,7 +45,6 @@ public class CrawlerUtils {
         }
 
         // 将获得的网页转为文档对象
-        TestUtils.log("通过代理IP获得网页文档对象内容：" + bs.toString());
         returnDocument = Jsoup.parse(bs.toString());
         return returnDocument;
     }

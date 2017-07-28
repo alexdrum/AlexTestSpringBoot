@@ -1,13 +1,13 @@
 package com.alextest.crawler.job;
 
 import com.alextest.common.AlexContextAware;
+import com.alextest.crawler.CrawlerUtils;
 import com.alextest.crawler.service.ProxyService;
 import com.alextest.crawler.vo.ProxyVo;
 import com.alextest.util.TestUtils;
 import com.dangdang.ddframe.job.api.ShardingContext;
 import com.dangdang.ddframe.job.api.simple.SimpleJob;
 import com.google.common.collect.Maps;
-import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
 import org.springframework.stereotype.Component;
@@ -28,12 +28,22 @@ public class ProxyCrawlerJob implements SimpleJob {
 
         ProxyService proxyService = (ProxyService) AlexContextAware.getBeanFromApplicationContext("proxyService");
         Document document;
-        for (int i = 1; i <= 5; i++) {
+        for (int i = 1; i <= 15; i++) {
             try {
                 // 抓取动态代理IP的页面
+                ProxyVo aProxyVo = null;
+                try {
+                    aProxyVo = proxyService.getProxy();
+                } catch (Exception e) {
+                    TestUtils.log("动态代理IP池没货了，用本机IP抓吧；");
+                }
                 String targetURL = String.format(KUAI_PROXY, String.valueOf(i));
-                document = Jsoup.connect(targetURL).get();
-                TestUtils.log("抓取到了动态代理IP的页面：" + document.toString());
+                if (aProxyVo == null) {
+                    document = CrawlerUtils.getDocumentFromURL(targetURL);
+                } else {
+                    document = CrawlerUtils.getDocumentFromURLWithProxy(targetURL, aProxyVo);
+                }
+                TestUtils.log("抓取到了动态代理IP的页面;");
 
                 // 解析代理IP内容并放入到代理IP池中
                 Map<Integer, ProxyVo> proxyVoMap = getProxyVoFromDocuments(document);
