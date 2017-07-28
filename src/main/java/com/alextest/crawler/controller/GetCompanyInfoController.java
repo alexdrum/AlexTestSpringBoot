@@ -2,6 +2,7 @@ package com.alextest.crawler.controller;
 
 import com.alextest.Apis;
 import com.alextest.crawler.CrawlerConst;
+import com.alextest.crawler.CrawlerUtils;
 import com.alextest.crawler.entity.CompanyEntity;
 import com.alextest.crawler.exception.SimpleException;
 import com.alextest.crawler.service.ProxyService;
@@ -17,7 +18,6 @@ import org.apache.poi.xssf.usermodel.XSSFCell;
 import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
@@ -28,15 +28,9 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.InetSocketAddress;
-import java.net.Proxy;
-import java.net.URL;
 import java.util.List;
 
-import static com.alextest.crawler.CrawlerConst.SEED_FILE;
-import static com.alextest.crawler.CrawlerConst.TIAN_YAN_CHA_PREFIX;
-import static com.alextest.crawler.CrawlerConst.TIAN_YAN_CHA_SUFFIX;
+import static com.alextest.crawler.CrawlerConst.*;
 
 /**
  * Created by alexdrum on 2017/7/24.
@@ -122,44 +116,30 @@ public class GetCompanyInfoController implements Apis {
             // 通过关键字从目标网站上抓取数据
             for (String keyWord : keyList) {
                 try {
-                    String searchURL = TIAN_YAN_CHA_PREFIX + keyWord + TIAN_YAN_CHA_SUFFIX;
+
+                    // 抓取网页
+                    String targetURL = TIAN_YAN_CHA_PREFIX + keyWord + TIAN_YAN_CHA_SUFFIX;
                     Document doc;
                     try {
                         // 获取一个动态代理IP
                         ProxyVo proxyVo = proxyService.getProxy();
-                        String proxyIp = proxyVo.getIp();
-                        Integer proxyPort = proxyVo.getPort();
-
-                        // 使用代理IP请求网页
-                        Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyIp, proxyPort));
-                        URL url = new URL(searchURL);
-                        HttpURLConnection uc = (HttpURLConnection) url.openConnection(proxy);
-                        uc.connect();
-                        InputStream is = uc.getInputStream();
-                        BufferedReader buffer = new BufferedReader(new InputStreamReader(is));
-                        StringBuffer bs = new StringBuffer();
-                        String l;
-                        while ((l = buffer.readLine()) != null) {
-                            bs.append(l);
-                        }
-
-                        // 将获得的网页转为文档对象
-                        TestUtils.log(bs.toString());
-                        doc = Jsoup.parse(bs.toString());
+                        // 获取网页
+                        doc = CrawlerUtils.getDocumentFromURLWithProxy(targetURL, proxyVo);
                     } catch (IOException ioException) {
                         TestUtils.log("获取网页失败！");
                         ioException.printStackTrace();
                         break;
                     }
-
                     TestUtils.log("已成功获取当前第" + CrawlerCounter + "个关键词：" + keyWord + " 的搜索结果页面；");
                     TestUtils.log(doc.toString());
 
+                    // 验证网页内容
                     Elements elements = doc.getElementsByClass("search_result_single search-2017 pb20 pt20 pl30 pr30");
                     if (CollectionUtils.isEmpty(elements)) {
                         TestUtils.log("啥也没爬着！");
                     }
 
+                    // 解析公司信息
                     int resultCounter = 1;
                     for (Element element : elements) {
                         TestUtils.log("已成功获取当前第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个搜索结果详细信息；");

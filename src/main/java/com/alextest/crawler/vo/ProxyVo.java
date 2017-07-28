@@ -1,8 +1,8 @@
 package com.alextest.crawler.vo;
 
+import com.alextest.util.TestUtils;
 import lombok.Getter;
 import lombok.Setter;
-import lombok.ToString;
 import org.apache.commons.lang3.StringUtils;
 
 import java.net.HttpURLConnection;
@@ -33,15 +33,17 @@ public class ProxyVo {
 
     // 测试代理IP是否可用
     public boolean isValid(){
-
+        TestUtils.log("正在测试：" + this.toString() + "的可用性；");
         try {
-            Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress("124.206.107.125", 3128));
+            Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(this.ip, this.port));
             URL url = new URL(TIAN_YAN_CHA_TEST);
             HttpURLConnection uc = (HttpURLConnection) url.openConnection(proxy);
             uc.connect();
         }catch (Exception e){
+            TestUtils.log(this.toString() + "经已经失效，从动态代理池中去除。");
             return false;
         }
+        TestUtils.log(this.toString() + "经测试可用。");
         return true;
     }
 
