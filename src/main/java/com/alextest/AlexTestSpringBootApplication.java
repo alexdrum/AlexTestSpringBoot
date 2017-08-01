@@ -1,7 +1,9 @@
 package com.alextest;
 
+import com.alextest.common.AlexContextAware;
 import com.alextest.crawler.job.ProxyCrawlerJob;
 import com.alextest.crawler.job.ProxyTestJob;
+import com.alextest.crawler.service.ProxyService;
 import com.dangdang.ddframe.job.config.JobCoreConfiguration;
 import com.dangdang.ddframe.job.config.simple.SimpleJobConfiguration;
 import com.dangdang.ddframe.job.lite.api.JobScheduler;
@@ -22,11 +24,24 @@ public class AlexTestSpringBootApplication {
 		// SpringBoot容器启动
 		SpringApplication.run(AlexTestSpringBootApplication.class, args);
 		// 初始化注册中心
-		CoordinatorRegistryCenter coordinatorRegistryCenter = createRegistryCenter();
+		//CoordinatorRegistryCenter coordinatorRegistryCenter = createRegistryCenter();
 		// 启动抓取代理IP爬虫作业
-		new JobScheduler(coordinatorRegistryCenter, createProxyCrawlerJobConfiguration()).init();
+		//new JobScheduler(coordinatorRegistryCenter, createProxyCrawlerJobConfiguration()).init();
 		// 启动清理不可用代理IP作业
-		new JobScheduler(coordinatorRegistryCenter, createProxyTestJobConfiguration()).init();
+		//new JobScheduler(coordinatorRegistryCenter, createProxyTestJobConfiguration()).init();
+		ProxyService proxyService = (ProxyService) AlexContextAware.getBeanFromApplicationContext("proxyService");
+		// 启动抓取代理IP爬虫作业
+		new Thread() {
+			public void run() {
+				proxyService.getProxyFromWeb();
+			}
+		}.start();
+		// 启动清理不可用代理IP作业
+		new Thread() {
+			public void run() {
+				proxyService.testProxy();
+			}
+		}.start();
 	}
 
 	/**

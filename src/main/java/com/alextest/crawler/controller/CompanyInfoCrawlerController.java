@@ -5,7 +5,7 @@ import com.alextest.crawler.CrawlerConst;
 import com.alextest.crawler.CrawlerUtils;
 import com.alextest.crawler.entity.CompanyEntity;
 import com.alextest.crawler.exception.SimpleException;
-import com.alextest.crawler.service.ProxyService;
+import com.alextest.crawler.service.ProxyPool;
 import com.alextest.crawler.vo.ProxyVo;
 import com.alextest.util.DateUtils;
 import com.alextest.util.TestUtils;
@@ -37,17 +37,17 @@ import static com.alextest.crawler.CrawlerConst.*;
  */
 @RestController
 @SpringBootApplication
-public class GetCompanyInfoController implements Apis {
+public class CompanyInfoCrawlerController implements Apis {
 
     @Autowired
-    ProxyService proxyService;
+    ProxyPool proxyPool;
 
     /**
      * controller测试方法
      */
     @RequestMapping(value = CONTROLLER_TEST, method = RequestMethod.GET)
     public void controllerTest(){
-        proxyService.getProxyVoMap();
+        proxyPool.getProxyVoMap();
     }
 
     /**
@@ -122,7 +122,7 @@ public class GetCompanyInfoController implements Apis {
                     Document doc;
                     try {
                         // 获取一个动态代理IP
-                        ProxyVo proxyVo = proxyService.getProxy();
+                        ProxyVo proxyVo = proxyPool.getProxy();
                         // 获取网页
                         doc = CrawlerUtils.getDocumentFromURLWithProxy(targetURL, proxyVo);
                     } catch (IOException ioException) {
