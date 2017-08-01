@@ -1,7 +1,7 @@
 package com.alextest.crawler.service;
 
-import com.alextest.common.AlexContextAware;
 import com.alextest.crawler.CrawlerUtils;
+import com.alextest.crawler.job.ProxyValidateTask;
 import com.alextest.crawler.vo.ProxyVo;
 import com.alextest.util.TestUtils;
 import com.google.common.collect.Maps;
@@ -13,9 +13,11 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 import static com.alextest.crawler.CrawlerConst.KUAI_PROXY;
+import static com.alextest.crawler.thread.ParallelDataProcessService.TO_BE_PROCESSED_DATA_LIST;
 
 /**
  * Created by alexdrum on 2017/7/28.
@@ -25,6 +27,8 @@ public class ProxyService {
 
     @Autowired
     ProxyPool proxyPool;
+    @Autowired
+    ProxyValidateTask proxyValidateTask;
 
     // 从代理网站获取免费的代理IP
     public void getProxyFromWeb() {
@@ -37,24 +41,28 @@ public class ProxyService {
                         TestUtils.log("开始抓取一页IP；");
                         // 抓取动态代理IP的页面
                         String targetURL = String.format(KUAI_PROXY, String.valueOf(i));
-//                        ProxyVo aProxyVo = null;
-//                        try {
-//                            aProxyVo = proxyPool.getProxy();
-//                        } catch (Exception e) {
-//                            TestUtils.log("动态代理IP池没货了，用本机IP抓吧；");
-//                        }
-//                        if (aProxyVo == null) {
-//                            document = CrawlerUtils.getDocumentFromURL(targetURL);
-//                        } else {
-//                            document = CrawlerUtils.getDocumentFromURLWithProxy(targetURL, aProxyVo);
-//                        }
                         document = CrawlerUtils.getDocumentFromURL(targetURL);
                         TestUtils.log("抓取到了动态代理IP的页面;");
 
-                        // 解析代理IP内容并放入到代理IP池中
+                        // 解析代理IP内容
                         Map<Integer, ProxyVo> proxyVoMap = getProxyVoFromDocuments(document);
+
+                        // 验证IP可用性
+                        CopyOnWriteArrayList<Object> resultList = new CopyOnWriteArrayList<>();
+                        Map<String, Object> paramMap = Maps.newHashMap();
+                        paramMap.put(TO_BE_PROCESSED_DATA_LIST, proxyVoMap.values());
+                        proxyValidateTask.doTask(paramMap, resultList);
+
+                        // 将无效代理从结果中去除
+                        resultList.forEach(object -> {
+                            ProxyVo proxyVo = (ProxyVo) object;
+                            proxyVoMap.remove(proxyVo.getHashCode(), proxyVo);
+                        });
+
+                        // 将验证没有问题的IP放入代理池
                         proxyPool.addBatchProxyVos(proxyVoMap);
                         TestUtils.log("抓取一页IP完毕，抓取线程：" + Thread.currentThread().getName() + " 休息5秒；");
+
                         // 休息5秒钟
                         Thread.sleep(5000);
                     } catch (Exception e) {
@@ -65,7 +73,9 @@ public class ProxyService {
                 TestUtils.log("抓取多页IP完毕，抓取线程：" + Thread.currentThread().getName() + " 休息60秒；");
                 Thread.sleep(600000);
             } catch (Exception e) {
-                if (!(e instanceof InterruptedException)) {
+                if (e instanceof InterruptedException) {
+                    break;
+                } else {
                     continue;
                 }
             }
@@ -104,20 +114,27 @@ public class ProxyService {
                 Map<Integer, ProxyVo> proxyVoMap = proxyPool.getProxyVoMap();
                 TestUtils.log("动态代理Map测试前共有：" + proxyVoMap.size() + "个代理IP；");
                 List<ProxyVo> proxyVoList = new ArrayList(proxyVoMap.values());
-                // 筛选不可用的代理IP
-                List<ProxyVo> invalidProxyVoList = proxyVoList
-                        .stream()
-                        .parallel()
-                        .filter(proxyVo -> proxyVo.isValid() == false)
-                        .collect(Collectors.toList());
-                // 从map中去除
-                invalidProxyVoList.forEach(proxyVo -> proxyVoMap.remove(proxyVo.getHashCode()));
-                TestUtils.log("已经去除：" + invalidProxyVoList.size() + "个代理IP；");
+
+                // 验证IP可用性
+                CopyOnWriteArrayList<Object> resultList = new CopyOnWriteArrayList<>();
+                Map<String, Object> paramMap = Maps.newHashMap();
+                paramMap.put(TO_BE_PROCESSED_DATA_LIST, proxyVoMap.values());
+                proxyValidateTask.doTask(paramMap, resultList);
+
+                // 将无效代理从结果中去除
+                resultList.forEach(object -> {
+                    ProxyVo proxyVo = (ProxyVo) object;
+                    proxyVoMap.remove(proxyVo.getHashCode(), proxyVo);
+                });
+
+                TestUtils.log("已经去除：" + resultList.size() + "个代理IP；");
                 TestUtils.log("去除不可用IP后Map共有：" + proxyVoMap.size() + "个代理IP；");
                 TestUtils.log("动态代理测试线程：" + Thread.currentThread().getName() + " 休息30秒；");
                 Thread.sleep(30000);
             } catch (Exception e) {
-                if (!(e instanceof InterruptedException)) {
+                if (e instanceof InterruptedException) {
+                    break;
+                } else {
                     continue;
                 }
             }

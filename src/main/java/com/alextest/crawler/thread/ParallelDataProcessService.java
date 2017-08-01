@@ -19,7 +19,7 @@ public abstract class ParallelDataProcessService {
     public static final String TO_BE_PROCESSED_DATA_LIST = "toBeProcessedDataList";
 
     // 多线程处理数据任务的线程数暂时为cpu核心数的8倍
-    private static int threadNum = 4;//Runtime.getRuntime().availableProcessors();
+    private static int threadNum = Runtime.getRuntime().availableProcessors() * 4;
     // 初始化异步执行数据处理任务的线程池
     private ExecutorService asyncExecutorService = Executors.newFixedThreadPool(threadNum, new NamedThreadFactory(this.getClass().getSimpleName()));
 
