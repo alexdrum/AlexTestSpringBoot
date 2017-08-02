@@ -35,11 +35,11 @@ public class ProxyValidateExecutor implements ITaskExecutorHandler {
     @Override
     public String handle(Object var1, String taskName, Map<String, Object> paramMap, CopyOnWriteArrayList<Object> resultList) {
         List<ProxyVo> proxyVoList = (List<ProxyVo>) var1;
-        resultList.addAll(proxyVoList
-                .stream()
-                .parallel()
-                .filter(proxyVo -> proxyVo.isValid() == false)
-                .collect(Collectors.toList()));
+        proxyVoList.forEach(proxyVo -> {
+            if(proxyVo.isValid()==false){
+                resultList.add(proxyVo);
+            }
+        });
         return null;
     }
 }

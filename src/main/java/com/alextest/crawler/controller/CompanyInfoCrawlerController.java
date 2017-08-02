@@ -10,6 +10,7 @@ import com.alextest.crawler.vo.ProxyVo;
 import com.alextest.util.DateUtils;
 import com.alextest.util.TestUtils;
 import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.poi.hssf.util.HSSFColor;
 import org.apache.poi.ss.usermodel.*;
@@ -35,6 +36,7 @@ import static com.alextest.crawler.CrawlerConst.*;
 /**
  * Created by alexdrum on 2017/7/24.
  */
+@Slf4j
 @RestController
 @SpringBootApplication
 public class CompanyInfoCrawlerController implements Apis {
@@ -96,14 +98,14 @@ public class CompanyInfoCrawlerController implements Apis {
                         String keyWord = xssfCell.getRichStringCellValue().getString();
                         //把刚获取的列存入list
                         keyList.add(keyWord);
-                        TestUtils.log("已读取第" + i + "条数据：" + keyWord);
+                        log.info("已读取第" + i + "条数据：" + keyWord);
                     } catch (IllegalStateException e) {
                         continue;
                     }
                 }
             }
 
-            TestUtils.log("已经初始化关键字，共：" + keyList.size() + "个。");
+            log.info("已经初始化关键字，共：" + keyList.size() + "个。");
 
             // 新建导出数据文件
             String path = CrawlerConst.WIN_ROOT;
@@ -111,7 +113,7 @@ public class CompanyInfoCrawlerController implements Apis {
             String fileType = "xlsx";
             List<CompanyEntity> list = Lists.newArrayList();
 
-            TestUtils.log("开始抓取企业数据：");
+            log.info("开始抓取企业数据：");
             int CrawlerCounter = 1;
             // 通过关键字从目标网站上抓取数据
             for (String keyWord : keyList) {
@@ -126,23 +128,23 @@ public class CompanyInfoCrawlerController implements Apis {
                         // 获取网页
                         doc = CrawlerUtils.getDocumentFromURLWithProxy(targetURL, proxyVo);
                     } catch (IOException ioException) {
-                        TestUtils.log("获取网页失败！");
+                        log.info("获取网页失败！");
                         ioException.printStackTrace();
                         break;
                     }
-                    TestUtils.log("已成功获取当前第" + CrawlerCounter + "个关键词：" + keyWord + " 的搜索结果页面；");
-                    TestUtils.log(doc.toString());
+                    log.info("已成功获取当前第" + CrawlerCounter + "个关键词：" + keyWord + " 的搜索结果页面；");
+                    log.info(doc.toString());
 
                     // 验证网页内容
                     Elements elements = doc.getElementsByClass("search_result_single search-2017 pb20 pt20 pl30 pr30");
                     if (CollectionUtils.isEmpty(elements)) {
-                        TestUtils.log("啥也没爬着！");
+                        log.info("啥也没爬着！");
                     }
 
                     // 解析公司信息
                     int resultCounter = 1;
                     for (Element element : elements) {
-                        TestUtils.log("已成功获取当前第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个搜索结果详细信息；");
+                        log.info("已成功获取当前第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个搜索结果详细信息；");
 
                         // 获取公司名称
                         String companyName = "";
@@ -151,7 +153,7 @@ public class CompanyInfoCrawlerController implements Apis {
                             nameDiv = element.getElementsByClass("mr20 search_left_icon");
                             companyName = nameDiv.get(0).child(0).attr("alt");
                         } catch (Exception e) {
-                            TestUtils.log("没有公司名称信息！");
+                            log.info("没有公司名称信息！");
                         }
 
                         // 获取图片文件并保存到图片平台
@@ -159,7 +161,7 @@ public class CompanyInfoCrawlerController implements Apis {
                         try {
                             picURL = nameDiv.get(0).child(0).attr("src");
                         } catch (Exception e) {
-                            TestUtils.log("没有公司Logo信息！");
+                            log.info("没有公司Logo信息！");
                         }
 
                         // 获取省份
@@ -169,7 +171,7 @@ public class CompanyInfoCrawlerController implements Apis {
                             String provinceDivString = provinceDiv.get(0).child(0).child(1).toString();
                             province = provinceDivString.substring(provinceDivString.indexOf("</i>") + 4, provinceDivString.indexOf(" \n <div class=\"notInIE8 position-abs\""));
                         } catch (Exception e) {
-                            TestUtils.log("没有所在省份信息！");
+                            log.info("没有所在省份信息！");
                         }
 
                         // 获得法人姓名、注册资金、注册日期、品牌
@@ -180,7 +182,7 @@ public class CompanyInfoCrawlerController implements Apis {
                         try {
                             createName = infoDiv.get(0).child(0).child(0).text();
                         } catch (Exception e) {
-                            TestUtils.log("没有注册法人信息！");
+                            log.info("没有注册法人信息！");
                         }
 
                         // 注册资金
@@ -190,7 +192,7 @@ public class CompanyInfoCrawlerController implements Apis {
                             registeredCapital = Double.valueOf(registeredCapitalString.substring(0, registeredCapitalString.indexOf("万人民币")).trim());
                             registeredCapital = registeredCapital * 10000L;
                         } catch (Exception e) {
-                            TestUtils.log("没有注册资金信息！");
+                            log.info("没有注册资金信息！");
                         }
 
                         // 成立日期
@@ -199,7 +201,7 @@ public class CompanyInfoCrawlerController implements Apis {
                             String foundDateString = infoDiv.get(0).child(2).child(0).text();
                             foundDate = Integer.valueOf(foundDateString.replace("-", ""));
                         } catch (Exception e) {
-                            TestUtils.log("没有建立日期信息！");
+                            log.info("没有建立日期信息！");
                         }
 
                         // 品牌信息
@@ -207,24 +209,24 @@ public class CompanyInfoCrawlerController implements Apis {
                         try {
                             brand = infoDiv.get(0).child(3).child(0).child(2).text();
                         } catch (Exception exception) {
-                            TestUtils.log("没有品牌信息");
+                            log.info("没有品牌信息");
                         }
 
                         CompanyEntity companyEntity = new CompanyEntity();
                         companyEntity.setName(companyName);
-                        TestUtils.log("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的公司名称：" + companyName);
+                        log.info("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的公司名称：" + companyName);
                         companyEntity.setCreateName(createName);
-                        TestUtils.log("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的法人姓名：" + createName);
+                        log.info("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的法人姓名：" + createName);
                         companyEntity.setProvince(province);
-                        TestUtils.log("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的所在省份：" + province);
+                        log.info("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的所在省份：" + province);
                         companyEntity.setRegisteredCapital(registeredCapital);
-                        TestUtils.log("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的注册资金：" + registeredCapital);
+                        log.info("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的注册资金：" + registeredCapital);
                         companyEntity.setFoundDate(foundDate);
-                        TestUtils.log("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的成立日期：" + foundDate);
+                        log.info("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的成立日期：" + foundDate);
                         companyEntity.setBrand(brand);
-                        TestUtils.log("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的品牌信息：" + brand);
+                        log.info("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的品牌信息：" + brand);
                         companyEntity.setLogo(picURL);
-                        TestUtils.log("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的图片地址：" + picURL);
+                        log.info("第" + CrawlerCounter + "个关键词：" + keyWord + " 的第" + resultCounter + "个结果的图片地址：" + picURL);
                         companyEntity.setCreateTime(nowTime);
                         list.add(companyEntity);
                         resultCounter++;
@@ -243,7 +245,7 @@ public class CompanyInfoCrawlerController implements Apis {
 
             wb.close();
         } catch (Exception e) {
-            TestUtils.log(e);
+            e.printStackTrace();
         } finally {
             stream.close();
         }
@@ -327,7 +329,7 @@ public class CompanyInfoCrawlerController implements Apis {
             //写入数据
             wb.write(stream);
         } catch (Exception e) {
-            TestUtils.log("写入文件失败");
+            log.info("写入文件失败");
         } finally {
             //关闭文件流
             stream.close();

@@ -11,6 +11,7 @@ public class CrawlerConst {
     public static final String TIAN_YAN_CHA_PREFIX = "https://www.tianyancha.com/search?key=";
     public static final String TIAN_YAN_CHA_SUFFIX = "&checkFrom=searchBox";
     public static final String TIAN_YAN_CHA_TEST = TIAN_YAN_CHA_PREFIX + "阔以" + TIAN_YAN_CHA_SUFFIX;
+    public static final String BAIDU_TEST = "http://www.baidu.com";
 
 
     // 抓取动态代理IP的静态变量
